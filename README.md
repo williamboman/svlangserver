@@ -45,12 +45,10 @@ The code has been tested to work with below tool versions
   * Update .emacs/init.el
 - For neovim
   * Install [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig)
+  * (Optional) Install [nlsp-settings.nvim](https://github.com/tamago324/nlsp-settings.nvim)
   * `npm install -g @imc-trading/svlangserver`
-  * Add following setting in your init.lua
-  ```lua
-  require'lspconfig'.svlangserver.setup{}
-  ```
-  * Update .nvim/lspconfig.json
+  * Create .svlangserver directory in your project root directory
+  * Update LSP settings
 
 To get the snippets, git clone this repo and copy the snippets directory wherever applicable
 
@@ -194,25 +192,63 @@ NOTE: This has been tested with npm version 6.14.13 and node version 14.17.1
                    (lsp-clients-svlangserver-includeIndexing . ("src/**/*.{sv,svh}"))
                    (lsp-clients-svlangserver-excludeIndexing . ("src/test/**/*.{sv,svh}"))))
     ```
-- Example neovim settings file
-    ```json
-    {
-        "languageserver": {
-            "svlangserver": {
-                "command": "svlangserver",
-                "filetypes": ["systemverilog"],
-                "settings": {
-                    "systemverilog.includeIndexing": ["**/*.{sv,svh}"],
-                    "systemverilog.excludeIndexing": ["test/**/*.sv*"],
-                    "systemverilog.defines" : [],
-                    "systemverilog.launchConfiguration": "/tools/verilator -sv -Wall --lint-only",
-                    "systemverilog.formatCommand": "/tools/verible-verilog-format"
-                }
-            }
-        }
+- Example settings for neovim
+  * Without nlsp-settings.nvim
+    Update your init.lua
+    ```lua
+    local nvim_lsp = require('lspconfig')
+
+    nvim_lsp.svlangserver.setup {
+      on_init = function(client)
+        local path = client.workspace_folders[1].name
+
+        if path == '/path/to/project1' then
+          client.config.settings.systemverilog = {
+            includeIndexing     = {"**/*.{sv,svh}"},
+            excludeIndexing     = {"test/**/*.sv*"},
+            defines             = {},
+            launchConfiguration = "/tools/verilator -sv -Wall --lint-only",
+            formatCommand       = "/tools/verible-verilog-format"
+          }
+        elseif path == '/path/to/project2' then
+          client.config.settings.systemverilog = {
+            includeIndexing     = {"**/*.{sv,svh}"},
+            excludeIndexing     = {"sim/**/*.sv*"},
+            defines             = {},
+            launchConfiguration = "/tools/verilator -sv -Wall --lint-only",
+            formatCommand       = "/tools/verible-verilog-format"
+          }
+        end
+
+        client.notify("workspace/didChangeConfiguration")
+        return true
+      end
     }
     ```
-    For project specific settings this file should be at `<WORKSPACE PATH>/.nvim/lspconfig.json`
+  * With nlsp-settings.nvim
+    Update your init.lua
+    ```lua
+    local nvim_lsp = require('lspconfig')
+
+    local on_attach = function(client, bufnr)
+      -- Other settings when LSPs are attached
+      -- ...
+
+      -- Update nlsp-settings when LSPs are attached
+      require'nlspsettings'.update_settings(client.name)
+    end
+    ```
+    Example nlsp-settings settings file
+    ```json
+    {
+        "systemverilog.includeIndexing": ["**/*.{sv,svh}"],
+        "systemverilog.excludeIndexing": ["test/**/*.sv*"],
+        "systemverilog.defines" : [],
+        "systemverilog.launchConfiguration": "/tools/verilator -sv -Wall --lint-only",
+        "systemverilog.formatCommand": "/tools/verible-verilog-format"
+    }
+    ```
+    For project specific settings this file should be at `<WORKSPACE PATH>/.nlsp-settings/svlangserver.json`
 
 ## Commands
 * `systemverilog.build_index`: Instructs language server to rerun indexing
